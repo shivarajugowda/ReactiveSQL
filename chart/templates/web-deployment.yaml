@@ -1,25 +1,34 @@
-apiVersion: apps/v1beta2
+apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ template "ReactiveSQL.fullname" . }}
+  name: {{ template "ReactiveSQL.fullname" . }}-web
   labels:
+    component: web
 {{ include "ReactiveSQL.labels" . | indent 4 }}
 spec:
-  replicas: {{ .Values.replicaCount }}
+  replicas: {{ .Values.replicaCount.web }}
   selector:
     matchLabels:
       app.kubernetes.io/name: {{ include "ReactiveSQL.name" . }}
       app.kubernetes.io/instance: {{ .Release.Name }}
+      component: web
   template:
     metadata:
       labels:
         app.kubernetes.io/name: {{ include "ReactiveSQL.name" . }}
         app.kubernetes.io/instance: {{ .Release.Name }}
+        component: web
     spec:
       containers:
-        - name: {{ .Chart.Name }}
-          image: "{{ .Values.image.repository }}:{{ .Chart.AppVersion }}"
+        - name: {{ .Chart.Name }}-web
+          #image: "{{ .Values.image.repository }}:{{ .Chart.AppVersion }}"
+          image: "{{ .Values.image.repository }}:1.0"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["uvicorn"]
+          args:
+            - 'app.web:app'
+            - '--workers'
+            - '4'
           ports:
             - name: http
               containerPort: 80

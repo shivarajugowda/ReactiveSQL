@@ -1,7 +1,5 @@
-
-
 from fastapi import FastAPI
-from app.prestoWorker import runQuery, rclient
+from app.worker import runQuery, rclient
 from app.jsonData import getQueuedStatus
 from starlette.requests import Request
 from starlette.responses import Response

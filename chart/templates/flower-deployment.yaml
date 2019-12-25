@@ -1,25 +1,34 @@
-apiVersion: apps/v1beta2
+apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ template "ReactiveSQL.fullname" . }}
+  name: {{ template "ReactiveSQL.fullname" . }}-flower
   labels:
+    component: flower
 {{ include "ReactiveSQL.labels" . | indent 4 }}
 spec:
-  replicas: {{ .Values.replicaCount }}
+  replicas: {{ .Values.replicaCount.flower }}
   selector:
     matchLabels:
       app.kubernetes.io/name: {{ include "ReactiveSQL.name" . }}
       app.kubernetes.io/instance: {{ .Release.Name }}
+      component: flower
   template:
     metadata:
       labels:
         app.kubernetes.io/name: {{ include "ReactiveSQL.name" . }}
         app.kubernetes.io/instance: {{ .Release.Name }}
+        component: flower
     spec:
       containers:
-        - name: {{ .Chart.Name }}
-          image: "{{ .Values.image.repository }}:{{ .Chart.AppVersion }}"
+        - name: {{ .Chart.Name }}-flower
+          #image: "{{ .Values.image.repository }}:{{ .Chart.AppVersion }}"
+          image: "{{ .Values.image.repository }}:1.0"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["flower"]
+          args:
+            - '-A'
+            - 'app.prestoWorker'
+            - '--port=80'
           ports:
             - name: http
               containerPort: 80

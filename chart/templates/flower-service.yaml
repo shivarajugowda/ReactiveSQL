@@ -1,16 +1,18 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ template "ReactiveSQL.fullname" . }}
+  name: {{ template "ReactiveSQL.fullname" . }}-flower
   labels:
+    component: flower
 {{ include "ReactiveSQL.labels" . | indent 4 }}
 spec:
-  type: {{ .Values.service.type }}
+  type: {{ .Values.service.flower.type }}
   ports:
-    - port: {{ .Values.service.port }}
+    - port: {{ .Values.service.flower.port }}
       targetPort: http
       protocol: TCP
       name: http
   selector:
     app.kubernetes.io/name: {{ include "ReactiveSQL.name" . }}
     app.kubernetes.io/instance: {{ .Release.Name }}
+    component: flower

@@ -1,12 +1,12 @@
 
 from urllib.parse import ParseResult, urlsplit
-import celery, json, redis, gzip, copy, http.client
+import os, celery, json, redis, gzip, copy, http.client
 
 
-#CELERY_BROKER = os.environ.get('CELERY_BROKER')
-#CELERY_BACKEND = os.environ.get('CELERY_BACKEND')
-CELERY_BROKER = "redis://localhost:6379/0"
-CELERY_BACKEND = "redis://localhost:6379/0"
+CELERY_BROKER = os.environ.get('CELERY_BROKER')
+CELERY_BACKEND = os.environ.get('CELERY_BACKEND')
+#CELERY_BROKER = "redis://localhost:6379/0"
+#CELERY_BACKEND = "redis://localhost:6379/0"
 
 
 celeryApp = celery.Celery('tasks', broker=CELERY_BROKER, backend=CELERY_BACKEND)
@@ -19,14 +19,15 @@ connection = http.client.HTTPConnection(host='localhost', port=9080)
 
 # Requests is slow. Here is the benchmark.
 # Benchmark 1000 'SELECT 1' queries run sequentially and time per query in ms
-#       BASELINE going direct to Presto : 30 ms
+#       BASELINE going direct to Presto : 12 ms
 #       REQUESTS library : 64 ms
-#       http.client : 38 ms.
+#       http.client : 21 ms.
 @celeryApp.task
 def runQuery(sql: str):
     page = 0
     task_id = runQuery.request.id
 
+    rclient.expire(task_id, 300)
     connection.request('POST', '/v1/statement', body=sql, headers={'X-Presto-User': 'XYZ'})
     json_response = json.loads(connection.getresponse().read().decode())
     page = storeResults(task_id, copy.copy(json_response), page)
@@ -53,7 +54,6 @@ def storeResults(task_id : str, json_response, page):
 
     json_response['id'] = task_id
     rclient.hset(task_id, page, gzip.compress(json.dumps(json_response).encode()))
-    rclient.expire(task_id, 300)
     return page + 1
 
 

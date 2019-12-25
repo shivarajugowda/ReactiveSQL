@@ -2,22 +2,35 @@
 # This is a YAML-formatted file.
 # Declare variables to be passed into your templates.
 
+redis:
+  usePassword: false
+  cluster:
+    enabled: false
+
 replicaCount:
-  reactiveSQL: 2
-  prestoWorker: 2
-  flower: 2
+  web: 2
+  worker: 1
+  flower: 1
 
 image:
-  repository: nginx
-  tag: latest
+  repository: shivarajugowda/reactivesql
+  tag: 1.0
   pullPolicy: IfNotPresent
 
 nameOverride: ""
 fullnameOverride: ""
 
+ingress:
+  enabled: false
+
 service:
-  type: ClusterIP # LoadBalancer, ClusterIP
-  port: 80
+  web:
+    type: ClusterIP # LoadBalancer, ClusterIP
+    port: 80
+  flower:
+    type: ClusterIP # LoadBalancer, ClusterIP
+    port: 5555
+
 
 resources: {}
   # We usually recommend not to specify default resources and to leave this as a conscious

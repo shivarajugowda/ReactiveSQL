@@ -13,14 +13,14 @@ async def ping():
 
 @fastApi.post("/v1/statement")
 async def query(request: Request):
-    body = await request.body()
-    sql: str = bytes.decode(body)
     user = request.headers.get('X-Presto-User')
-
     if not user:
         raise AssertionError('User name must be specified')
 
-    taskId = worker.runPrestoJob(user, sql)
+    body = await request.body()
+    sql: str = bytes.decode(body)
+
+    taskId = worker.addPrestoJob(user, sql)
     return config.getQueuedStatus(taskId)
 
 @fastApi.get("/v1/statement/{state}/{queryId}/{token}/{page}")

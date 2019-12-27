@@ -1,12 +1,10 @@
-from datetime import timedelta
-
 import orjson, gzip, copy, http.client, celery, subprocess, time
-from celery.task import periodic_task
-import kubernetes
-
 import app.config as config
 from urllib.parse import ParseResult, urlsplit
 from celery.signals import worker_init, worker_shutting_down
+from celery.task import periodic_task
+import kubernetes
+from datetime import timedelta
 
 celeryApp = celery.Celery('tasks', broker=config.CELERY_BROKER, backend=config.CELERY_BACKEND)
 celeryApp.conf.update({
@@ -18,8 +16,24 @@ celeryApp.conf.update({
         'celery_ignore_result': True
      })
 
+@worker_init.connect()
+def configure_worker_init(conf=None, **kwargs):
+    # cmd = ['helm', 'install', 'mypresto', 'stable/presto', '--set', 'server.workers=0', '--set', 'server.jvm.maxHeapSize=3G', '--wait']
+    # process = subprocess.Popen(cmd, stdout=subprocess.PIPE).wait()
+    # print("Helm returned with ", process.returncode)
+
+    # Consume from active queues.
+    for key in config.rclient.scan_iter(config.QUEUE_PREFIX + "*"):
+        celeryApp.control.add_consumer(key)
+
+@worker_shutting_down.connect()
+def configure_worker_shutdown(conf=None, **kwargs):
+    print("SHIV : Worker SHUTTING DOWN")
+    # cmd = ['helm', 'uninstall', 'mypresto']
+    # process = subprocess.Popen(cmd, stdout=subprocess.PIPE).wait()
+
 @periodic_task(run_every=timedelta(seconds=120), expires=15, ignore_result=True)
-def monitor():
+def autoscale():
     kubernetes.config.load_kube_config()
     v1 = kubernetes.client.CoreV1Api()
     print("Listing pods with their IPs:")
@@ -27,47 +41,6 @@ def monitor():
     for i in ret.items:
         print("%s\t%s\t%s" % (i.status.pod_ip, i.metadata.namespace, i.metadata.name))
 
-
-@worker_init.connect()
-def configure_worker_init(conf=None, **kwargs):
-    # Consume from active queues.
-    for key in config.rclient.scan_iter(config.QUEUE_PREFIX + "*"):
-        celeryApp.control.add_consumer(key)
-    # cmd = ['helm', 'uninstall', 'mypresto']
-    # process = subprocess.Popen(cmd, stdout=subprocess.PIPE)
-    # process.wait()
-    #
-    # cmd = ['helm', 'install', 'mypresto', 'stable/presto', '--set', 'server.workers=0', '--set', 'server.jvm.maxHeapSize=3G', '--wait']
-    # process = subprocess.Popen(cmd, stdout=subprocess.PIPE)
-    # process.wait()
-    # print("Helm returned with ", process.returncode)
-
-@worker_shutting_down.connect()
-def configure_worker_shutdown(conf=None, **kwargs):
-    print("SHIV : Worker SHUTTING DOWN")
-    # cmd = ['helm', 'uninstall', 'mypresto']
-    # process = subprocess.Popen(cmd, stdout=subprocess.PIPE)
-    # process.wait()
-
-def runPrestoJob(user: str, sql: str):
-    queueName = config.QUEUE_PREFIX + user
-    len = config.rclient.llen(queueName)
-    if len > 10:
-        raise AssertionError('Max concurrent queries reached')
-
-    task = runPrestoQuery.apply_async((sql,), queue=queueName)
-
-    ## If the queue is newly created, tell workers to start consuming from it.
-    if len == 0:
-        celeryApp.control.add_consumer(queueName)
-
-    return task.id
-
-# Requests is slow. Here is the benchmark.
-# Benchmark 1000 'SELECT 1' queries run sequentially and time per query in ms
-#       BASELINE going direct to Presto : 12 ms
-#       REQUESTS library : 64 ms
-#       http.client : 21 ms.
 @celeryApp.task(compression='gzip', ignore_result=True, acks_late=True)
 def runPrestoQuery(sql: str):
     page = 0
@@ -110,6 +83,19 @@ def storeResults(task_id: str, json_response, page):
         config.rclient.expire(task_id, config.RESULTS_TIME_TO_LIVE_SECS)
     return page + 1
 
+def addPrestoJob(user: str, sql: str):
+    queueName = config.QUEUE_PREFIX + user
+    len = config.rclient.llen(queueName)
+    if len > 10:
+        raise AssertionError('Max concurrent queries reached')
+
+    task = runPrestoQuery.apply_async((sql,), queue=queueName)
+
+    ## If the queue is newly created, tell workers to start consuming from it.
+    if len == 0:
+        celeryApp.control.add_consumer(queueName)
+
+    return task.id
 
 if __name__ == '__main__':
     runPrestoQuery("Select 1")

@@ -30,3 +30,4 @@ COPY --from=compile-image /usr/src/linux-amd64/helm /usr/src/venv/bin
 # add app
 WORKDIR /usr/src
 COPY app /usr/src/app
+COPY charts /usr/src/charts

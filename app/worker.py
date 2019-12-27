@@ -54,7 +54,7 @@ def runPrestoQuery(sql: str):
     page = storeResults(task_id, copy.copy(json_response), page)
     while('nextUri' in json_response):
         connection.request('GET', json_response['nextUri'])
-        json_response = json.loads(connection.getresponse().read())
+        json_response = json.loads(connection.getresponse().read().decode())
         page = storeResults(task_id, copy.copy(json_response), page)
 
     config.rclient.hset(task_id, "DONE", 1)
@@ -68,16 +68,18 @@ def storeResults(task_id: str, json_response, page):
 
     # Switch the URI to point to the stored results.
     if 'nextUri' in json_response:
+        # Tested on Presto 317
         urix = urlsplit(json_response['nextUri'])
         parts = urix.path.split("/")
         parts[4] = task_id;
         parts[5] = 'zzz'
+
         res = ParseResult(scheme=urix.scheme, netloc=config.WEB_SERVICE, path='/'.join(parts),
                           params=None, query=None, fragment=None)
         json_response['nextUri'] = res.geturl()
 
     json_response['id'] = task_id
-    config.rclient.hset(task_id , page, gzip.compress(json.dumps(json_response)))
+    config.rclient.hset(task_id , page, gzip.compress(json.dumps(json_response).encode()))
     # TTL : Set time to live for the query result.
     if page == 0:
         config.rclient.expire(task_id, config.RESULTS_TIME_TO_LIVE_SECS)

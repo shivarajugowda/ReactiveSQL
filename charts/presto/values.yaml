@@ -1,0 +1,64 @@
+server:
+  workers: 1
+  autoscale:
+    enabled: true
+    expectedQueriesPerWorker: 1
+    minWorkers: 1
+    maxWorkers: 10
+    coolDownDelayInSecs: 30
+  node:
+    environment: production
+    dataDir: /presto/etc/data
+  log:
+    presto:
+      level: INFO
+  config:
+    path: /etc/presto
+    http:
+      port: 8080
+      jmxport: 9999
+    query:
+      maxMemory: "1GB"
+      maxMemoryPerNode: "1GB"
+  jvm:
+    maxHeapSize: "-Xmx5G" # "-XX:MaxRAMPercentage=75"  # "-Xmx10G" "-XX:MaxRAMPercentage=75"
+    gcMethod:
+      type: "UseG1GC"
+      g1:
+        heapRegionSize: "32M"
+
+image:
+  repository: shivarajugowda/prestosql
+  tag: jdk11 # jdk11  latest
+  pullPolicy: Always # IfNotPresent Always
+
+service:
+  type: ClusterIP
+
+resources:
+  # We usually recommend not to specify default resources and to leave this as a conscious
+  # choice for the user. This also increases chances charts run on environments with little
+  # resources, such as Minikube. If you do want to specify resources, uncomment the following
+  # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
+  limits:
+    cpu: 2.5
+    memory: 5Gi
+  requests:
+    cpu: 2.5
+    memory: 5Gi
+
+nodeSelector: {}
+
+tolerations:
+    coordinator:
+    - key: "special"
+      operator: "Equal"
+      value: "prestocoord"
+      effect: "NoExecute"
+    worker:
+      - key: "special"
+        operator: "Equal"
+        value: "prestoworker"
+        effect: "NoExecute"
+
+affinity: {}

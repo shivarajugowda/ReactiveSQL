@@ -7,7 +7,7 @@ WEB_SERVICE = os.environ.get('WEB_SERVICE')      #  "myrx-reactivesql-web:8000"
 RESULTS_TIME_TO_LIVE_SECS = 300
 QUEUE_PREFIX = "prestoworker:"
 
-rclient = redis.from_url(CELERY_BACKEND)
+rclient = redis.from_url(CELERY_BROKER)
 
 class Stats(BaseModel):
     state : str = 'QUEUED'

@@ -1,21 +1,21 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ template "kuper.fullname" . }}-web
+  name: {{ template "kupcr.fullname" . }}-web
   labels:
     component: web
-{{ include "kuper.labels" . | indent 4 }}
+{{ include "kupcr.labels" . | indent 4 }}
 spec:
   replicas: {{ .Values.replicaCount.web }}
   selector:
     matchLabels:
-      app.kubernetes.io/name: {{ include "kuper.name" . }}
+      app.kubernetes.io/name: {{ include "kupcr.name" . }}
       app.kubernetes.io/instance: {{ .Release.Name }}
       component: web
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: {{ include "kuper.name" . }}
+        app.kubernetes.io/name: {{ include "kupcr.name" . }}
         app.kubernetes.io/instance: {{ .Release.Name }}
         component: web
     spec:
@@ -27,11 +27,11 @@ spec:
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           env:
             - name: CELERY_BROKER
-              value: "redis://myrx-kuper-redis:6379/0"
+              value: "redis://myrx-kupcr-redis:6379/0"
             - name: CELERY_BACKEND
-              value: "redis://myrx-kuper-redis:6379/0"
+              value: "redis://myrx-kupcr-redis:6379/0"
             - name: WEB_SERVICE
-              value: "myrx-kuper-web:8000"
+              value: "myrx-kupcr-web:8000"
           command: ["uvicorn"]
           args:
             - 'app.web:app'

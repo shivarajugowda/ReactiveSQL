@@ -1,10 +1,10 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ template "kuper.fullname" . }}-flower
+  name: {{ template "kupcr.fullname" . }}-flower
   labels:
     component: flower
-{{ include "kuper.labels" . | indent 4 }}
+{{ include "kupcr.labels" . | indent 4 }}
 spec:
   type: {{ .Values.service.flower.type }}
   ports:
@@ -13,6 +13,6 @@ spec:
       protocol: TCP
       name: http
   selector:
-    app.kubernetes.io/name: {{ include "kuper.name" . }}
+    app.kubernetes.io/name: {{ include "kupcr.name" . }}
     app.kubernetes.io/instance: {{ .Release.Name }}
     component: flower

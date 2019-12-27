@@ -1,4 +1,4 @@
-import orjson, gzip, copy, http.client, celery, subprocess, time
+import json, gzip, copy, http.client, celery, subprocess, time
 import app.config as config
 from urllib.parse import ParseResult, urlsplit
 from celery.signals import worker_init, worker_shutting_down
@@ -50,11 +50,11 @@ def runPrestoQuery(sql: str):
     connection = http.client.HTTPConnection(host='localhost', port=9080)
 
     connection.request('POST', '/v1/statement', body=sql, headers={'X-Presto-User': 'XYZ'})
-    json_response = orjson.loads(connection.getresponse().read())
+    json_response = json.loads(connection.getresponse().read())
     page = storeResults(task_id, copy.copy(json_response), page)
     while('nextUri' in json_response):
         connection.request('GET', json_response['nextUri'])
-        json_response = orjson.loads(connection.getresponse().read())
+        json_response = json.loads(connection.getresponse().read())
         page = storeResults(task_id, copy.copy(json_response), page)
 
     config.rclient.hset(task_id, "DONE", 1)
@@ -77,7 +77,7 @@ def storeResults(task_id: str, json_response, page):
         json_response['nextUri'] = res.geturl()
 
     json_response['id'] = task_id
-    config.rclient.hset(task_id , page, gzip.compress(orjson.dumps(json_response)))
+    config.rclient.hset(task_id , page, gzip.compress(json.dumps(json_response)))
     # TTL : Set time to live for the query result.
     if page == 0:
         config.rclient.expire(task_id, config.RESULTS_TIME_TO_LIVE_SECS)

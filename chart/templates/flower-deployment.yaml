@@ -1,21 +1,21 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ template "ReactiveSQL.fullname" . }}-flower
+  name: {{ template "kuper.fullname" . }}-flower
   labels:
     component: flower
-{{ include "ReactiveSQL.labels" . | indent 4 }}
+{{ include "kuper.labels" . | indent 4 }}
 spec:
   replicas: {{ .Values.replicaCount.flower }}
   selector:
     matchLabels:
-      app.kubernetes.io/name: {{ include "ReactiveSQL.name" . }}
+      app.kubernetes.io/name: {{ include "kuper.name" . }}
       app.kubernetes.io/instance: {{ .Release.Name }}
       component: flower
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: {{ include "ReactiveSQL.name" . }}
+        app.kubernetes.io/name: {{ include "kuper.name" . }}
         app.kubernetes.io/instance: {{ .Release.Name }}
         component: flower
     spec:
@@ -28,7 +28,7 @@ spec:
           command: ["flower"]
           args:
             - '--broker'
-            - 'redis://myrx-reactivesql-redis:6379/0'
+            - 'redis://myrx-kuper-redis:6379/0'
             - '--port=80'
           ports:
             - name: http

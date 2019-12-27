@@ -1,10 +1,10 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ template "ReactiveSQL.fullname" . }}-redis
+  name: {{ template "kuper.fullname" . }}-redis
   labels:
     component: redis
-{{ include "ReactiveSQL.labels" . | indent 4 }}
+{{ include "kuper.labels" . | indent 4 }}
 spec:
   type: {{ .Values.service.redis.type }}
   ports:
@@ -13,6 +13,6 @@ spec:
       protocol: TCP
       name: http
   selector:
-    app.kubernetes.io/name: {{ include "ReactiveSQL.name" . }}
+    app.kubernetes.io/name: {{ include "kuper.name" . }}
     app.kubernetes.io/instance: {{ .Release.Name }}
     component: redis

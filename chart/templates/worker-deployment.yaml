@@ -1,21 +1,21 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ template "ReactiveSQL.fullname" . }}-worker
+  name: {{ template "kuper.fullname" . }}-worker
   labels:
     component: worker
-{{ include "ReactiveSQL.labels" . | indent 4 }}
+{{ include "kuper.labels" . | indent 4 }}
 spec:
   replicas: {{ .Values.replicaCount.prestoWorker }}
   selector:
     matchLabels:
-      app.kubernetes.io/name: {{ include "ReactiveSQL.name" . }}
+      app.kubernetes.io/name: {{ include "kuper.name" . }}
       app.kubernetes.io/instance: {{ .Release.Name }}
       component: worker
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: {{ include "ReactiveSQL.name" . }}
+        app.kubernetes.io/name: {{ include "kuper.name" . }}
         app.kubernetes.io/instance: {{ .Release.Name }}
         component: worker
     spec:
@@ -27,11 +27,11 @@ spec:
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           env:
             - name: CELERY_BROKER
-              value: "redis://myrx-reactivesql-redis:6379/0"
+              value: "redis://myrx-kuper-redis:6379/0"
             - name: CELERY_BACKEND
-              value: "redis://myrx-reactivesql-redis:6379/0"
+              value: "redis://myrx-kuper-redis:6379/0"
             - name: WEB_SERVICE
-              value: "myrx-reactivesql-web:8000"
+              value: "myrx-kuper-web:8000"
           command: ["celery"]
           args:
             - '-A'

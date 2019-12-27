@@ -8,14 +8,14 @@ redis:
     enabled: false
 
 replicaCount:
-  web: 2
+  web: 1
   worker: 1
   flower: 1
 
 image:
   repository: shivarajugowda/reactivesql
   tag: 1.0
-  pullPolicy: IfNotPresent
+  pullPolicy: Always # IfNotPresent
 
 nameOverride: ""
 fullnameOverride: ""
@@ -26,10 +26,13 @@ ingress:
 service:
   web:
     type: ClusterIP # LoadBalancer, ClusterIP
-    port: 80
+    port: 8000
   flower:
     type: ClusterIP # LoadBalancer, ClusterIP
     port: 5555
+  redis:
+    type: ClusterIP # LoadBalancer, ClusterIP
+    port: 6379
 
 
 resources: {}

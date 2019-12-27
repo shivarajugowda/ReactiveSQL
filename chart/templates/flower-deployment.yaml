@@ -19,6 +19,7 @@ spec:
         app.kubernetes.io/instance: {{ .Release.Name }}
         component: flower
     spec:
+      terminationGracePeriodSeconds: 1
       containers:
         - name: {{ .Chart.Name }}-flower
           #image: "{{ .Values.image.repository }}:{{ .Chart.AppVersion }}"
@@ -26,8 +27,8 @@ spec:
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           command: ["flower"]
           args:
-            - '-A'
-            - 'app.prestoWorker'
+            - '--broker'
+            - 'redis://myrx-reactivesql-redis:6379/0'
             - '--port=80'
           ports:
             - name: http

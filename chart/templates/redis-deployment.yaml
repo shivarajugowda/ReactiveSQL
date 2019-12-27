@@ -1,42 +1,32 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ template "ReactiveSQL.fullname" . }}-worker
+  name: {{ template "ReactiveSQL.fullname" . }}-redis
   labels:
-    component: worker
+    component: redis
 {{ include "ReactiveSQL.labels" . | indent 4 }}
 spec:
-  replicas: {{ .Values.replicaCount.prestoWorker }}
   selector:
     matchLabels:
       app.kubernetes.io/name: {{ include "ReactiveSQL.name" . }}
       app.kubernetes.io/instance: {{ .Release.Name }}
-      component: worker
+      component: redis
   template:
     metadata:
       labels:
         app.kubernetes.io/name: {{ include "ReactiveSQL.name" . }}
         app.kubernetes.io/instance: {{ .Release.Name }}
-        component: worker
+        component: redis
     spec:
       terminationGracePeriodSeconds: 1
       containers:
-        - name: {{ .Chart.Name }}-worker
-          #image: "{{ .Values.image.repository }}:{{ .Chart.AppVersion }}"
-          image: "{{ .Values.image.repository }}:1.0"
+        - name: {{ .Chart.Name }}-redis
+          image: "redis"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
-          env:
-            - name: CELERY_BROKER
-              value: "redis://myrx-reactivesql-redis:6379/0"
-            - name: CELERY_BACKEND
-              value: "redis://myrx-reactivesql-redis:6379/0"
-            - name: WEB_SERVICE
-              value: "myrx-reactivesql-web:8000"
-          command: ["celery"]
-          args:
-            - '-A'
-            - 'app.worker'
-            - 'worker'
+          ports:
+            - name: http
+              containerPort: 6379
+              protocol: TCP
           resources:
 {{ toYaml .Values.resources | indent 12 }}
     {{- with .Values.nodeSelector }}

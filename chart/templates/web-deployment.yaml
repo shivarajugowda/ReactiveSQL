@@ -19,28 +19,38 @@ spec:
         app.kubernetes.io/instance: {{ .Release.Name }}
         component: web
     spec:
+      terminationGracePeriodSeconds: 1
       containers:
         - name: {{ .Chart.Name }}-web
           #image: "{{ .Values.image.repository }}:{{ .Chart.AppVersion }}"
           image: "{{ .Values.image.repository }}:1.0"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            - name: CELERY_BROKER
+              value: "redis://myrx-reactivesql-redis:6379/0"
+            - name: CELERY_BACKEND
+              value: "redis://myrx-reactivesql-redis:6379/0"
+            - name: WEB_SERVICE
+              value: "myrx-reactivesql-web:8000"
           command: ["uvicorn"]
           args:
             - 'app.web:app'
             - '--workers'
             - '4'
+            - '--port'
+            - '8000'
           ports:
             - name: http
-              containerPort: 80
+              containerPort: 8000
               protocol: TCP
-          livenessProbe:
-            httpGet:
-              path: /
-              port: http
-          readinessProbe:
-            httpGet:
-              path: /
-              port: http
+#          livenessProbe:
+#            httpGet:
+#              path: /ping
+#              port: http
+#          readinessProbe:
+#            httpGet:
+#              path: /ping
+#              port: http
           resources:
 {{ toYaml .Values.resources | indent 12 }}
     {{- with .Values.nodeSelector }}

@@ -3,11 +3,11 @@ import app.config as config
 from urllib.parse import ParseResult, urlsplit
 from celery.signals import worker_init, worker_shutting_down
 from celery.task import periodic_task
-import kubernetes
+import kubernetes, sys
 from datetime import timedelta
 from urllib3.util.retry import Retry
 
-prestoHTTP = urllib3.PoolManager(retries=Retry(connect=5, read=5))
+prestoHTTP = urllib3.PoolManager(retries=Retry(5, backoff_factor=0.1)) #-- Max wait on retry = 3.0 seconds
 celeryApp = celery.Celery('tasks', broker=config.CELERY_BROKER_URL, backend=config.CELERY_RESULT_BACKEND)
 celeryApp.conf.update({
         'broker_pool_limit': 6,
@@ -16,26 +16,45 @@ celeryApp.conf.update({
         'task_acks_late': True,
      })
 
-@worker_init.connect()
-def configure_worker_init(conf=None, **kwargs):
-    if config.MANAGE_PRESTO_SERVICE:
-        start = time.perf_counter()
-        config.rclient.hset(config.POD_PRESTO_SVC_MAP, config.POD_NAME, config.PRESTO_SVC);
-        cmd = ['helm', 'install', config.PRESTO_SVC, './charts/presto', '--set', 'server.workers=0', '--wait']
-        rtcode = subprocess.Popen(cmd, stdout=subprocess.PIPE).wait()
-        if rtcode!=0 :
-            raise RuntimeError("Failed to start Presto Service ")
-        print("Start Presto Service : time taken (secs) : " + str(time.perf_counter() - start))
 
-    # Consume from active queues.
-    for key in config.rclient.scan_iter(config.QUEUE_PREFIX + "*"):
-        celeryApp.control.add_consumer(key)
+## Start and Check Presto Service.
+@worker_init.connect()
+def start_presto_service(conf=None, **kwargs):
+    start = time.perf_counter()
+    try:
+        if config.MANAGE_PRESTO_SERVICE:
+            config.rclient.hset(config.POD_PRESTO_SVC_MAP, config.POD_NAME, config.PRESTO_SVC);
+            cmd = ['helm', 'install', config.PRESTO_SVC, './charts/presto', '--set', 'server.workers=0', '--wait']
+            subprocess.Popen(cmd, stdout=subprocess.PIPE).wait()
+
+        url = 'http://' + config.PRESTO_SVC + ':' + str(config.PRESTO_PORT)
+        print("Checking Presto Service with retry (timeout=100 seconds) : " + url)
+        prestoHTTP.request('GET', url, retries=Retry(10, backoff_factor=0.1))  #-- Max wait on retry = 100 seconds
+    except Exception as e:
+        print("Failed to connect to Presto Service in " + str(time.perf_counter() - start)
+                        + " seconds with exception : " + str(e))
+        if config.MANAGE_PRESTO_SERVICE:
+            cmd = ['helm', 'uninstall', config.PRESTO_SVC]
+            subprocess.Popen(cmd, stdout=subprocess.PIPE).wait()
+        sys.exit(1)
+    finally:
+        print("Presto Service initialization Time Taken : " + str(time.perf_counter() - start))
+
+##  Subscribe to active queues.
+@worker_init.connect()
+def subscribe_to_queues(conf=None, **kwargs):
+    try:
+        for key in config.rclient.scan_iter(config.QUEUE_PREFIX + "*"):
+            celeryApp.control.add_consumer(key.decode())
+    except Exception as e:
+        print("Failed to Subscribed to Active Queues : " + str(e))
+        sys.exit(1)
 
 @worker_shutting_down.connect()
-def configure_worker_shutdown(conf=None, **kwargs):
+def shutdown_presto_service(conf=None, **kwargs):
     if config.MANAGE_PRESTO_SERVICE:
         cmd = ['helm', 'uninstall', config.PRESTO_SVC]
-        rtcode = subprocess.Popen(cmd, stdout=subprocess.PIPE).wait()
+        subprocess.Popen(cmd, stdout=subprocess.PIPE).wait()
         config.rclient.hdel(config.POD_PRESTO_SVC_MAP, config.POD_NAME);
         print("Stop Presto Service ")
 
@@ -70,9 +89,8 @@ def storeResults(task_id: str, json_response, page):
     if 'QUEUED' == json_response['stats']['state']:
         return page
 
-    # Switch the URI to point to the stored results.
+    # Switch the URI to point to the stored results.  # Tested on Presto 317
     if 'nextUri' in json_response:
-        # Tested on Presto 317
         urix = urlsplit(json_response['nextUri'])
         parts = urix.path.split("/")
         parts[4] = task_id;

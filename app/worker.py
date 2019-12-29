@@ -1,26 +1,31 @@
-import json, gzip, copy, http.client, celery, subprocess, time
+import json, gzip, copy, celery, subprocess, time, urllib3, http.client
 import app.config as config
 from urllib.parse import ParseResult, urlsplit
 from celery.signals import worker_init, worker_shutting_down
 from celery.task import periodic_task
 import kubernetes
 from datetime import timedelta
+from urllib3.util.retry import Retry
 
-celeryApp = celery.Celery('tasks', broker=config.CELERY_BROKER, backend=config.CELERY_BACKEND)
+prestoHTTP = urllib3.PoolManager(retries=Retry(connect=5, read=5))
+celeryApp = celery.Celery('tasks', broker=config.CELERY_BROKER_URL, backend=config.CELERY_RESULT_BACKEND)
 celeryApp.conf.update({
-#     'task_serializer' : 'msgpack',
         'broker_pool_limit': 6,
         'redis_max_connections': 6,
         'worker_prefetch_multiplier': 1,
         'task_acks_late': True,
-        'celery_ignore_result': True
      })
 
 @worker_init.connect()
 def configure_worker_init(conf=None, **kwargs):
-    # cmd = ['helm', 'install', 'mypresto', 'stable/presto', '--set', 'server.workers=0', '--set', 'server.jvm.maxHeapSize=3G', '--wait']
-    # process = subprocess.Popen(cmd, stdout=subprocess.PIPE).wait()
-    # print("Helm returned with ", process.returncode)
+    if config.MANAGE_PRESTO_SERVICE:
+        start = time.perf_counter()
+        config.rclient.hset(config.POD_PRESTO_SVC_MAP, config.POD_NAME, config.PRESTO_SVC);
+        cmd = ['helm', 'install', config.PRESTO_SVC, './charts/presto', '--set', 'server.workers=0', '--wait']
+        rtcode = subprocess.Popen(cmd, stdout=subprocess.PIPE).wait()
+        if rtcode!=0 :
+            raise RuntimeError("Failed to start Presto Service ")
+        print("Start Presto Service : time taken (secs) : " + str(time.perf_counter() - start))
 
     # Consume from active queues.
     for key in config.rclient.scan_iter(config.QUEUE_PREFIX + "*"):
@@ -28,38 +33,37 @@ def configure_worker_init(conf=None, **kwargs):
 
 @worker_shutting_down.connect()
 def configure_worker_shutdown(conf=None, **kwargs):
-    print("SHIV : Worker SHUTTING DOWN")
-    # cmd = ['helm', 'uninstall', 'mypresto']
-    # process = subprocess.Popen(cmd, stdout=subprocess.PIPE).wait()
+    if config.MANAGE_PRESTO_SERVICE:
+        cmd = ['helm', 'uninstall', config.PRESTO_SVC]
+        rtcode = subprocess.Popen(cmd, stdout=subprocess.PIPE).wait()
+        config.rclient.hdel(config.POD_PRESTO_SVC_MAP, config.POD_NAME);
+        print("Stop Presto Service ")
 
-@periodic_task(run_every=timedelta(seconds=120), expires=15, ignore_result=True)
+@periodic_task(run_every=timedelta(seconds=300), expires=15, ignore_result=True)
 def autoscale():
     kubernetes.config.load_kube_config()
     v1 = kubernetes.client.CoreV1Api()
     print("Listing pods with their IPs:")
-    ret = v1.list_pod_for_all_namespaces(watch=False)
+    ret = v1.list_namespaced_pod('default', watch=False)
     for i in ret.items:
         print("%s\t%s\t%s" % (i.status.pod_ip, i.metadata.namespace, i.metadata.name))
 
+@periodic_task(run_every=timedelta(seconds=300), expires=15, ignore_result=True)
+def garbageCollector():
+    print("Run garbage Collector:")
+
+
 @celeryApp.task(compression='gzip', ignore_result=True, acks_late=True)
 def runPrestoQuery(sql: str):
-    page = 0
     task_id = runPrestoQuery.request.id
-
-    start = time.perf_counter()
-    connection = http.client.HTTPConnection(host='localhost', port=9080)
-
-    connection.request('POST', '/v1/statement', body=sql, headers={'X-Presto-User': 'XYZ'})
-    json_response = json.loads(connection.getresponse().read())
-    page = storeResults(task_id, copy.copy(json_response), page)
+    req = prestoHTTP.request('POST', 'http://localhost:9080/v1/statement', body=sql, headers={'X-Presto-User': 'XYZ'})
+    json_response = json.loads(req.data.decode())
+    page = storeResults(task_id, copy.copy(json_response), 0)
     while('nextUri' in json_response):
-        connection.request('GET', json_response['nextUri'])
-        json_response = json.loads(connection.getresponse().read().decode())
+        req = prestoHTTP.request('GET', json_response['nextUri'])
+        json_response = json.loads(req.data.decode())
         page = storeResults(task_id, copy.copy(json_response), page)
-
-    config.rclient.hset(task_id, "DONE", 1)
-    connection.close()
-    #print("Time taken : " + str(time.perf_counter() - start))
+    config.rclient.hset(task_id, config.STATE, config.STATE_DONE)
 
 def storeResults(task_id: str, json_response, page):
     # We can ignore the QUEUED results. I think...
@@ -80,24 +84,26 @@ def storeResults(task_id: str, json_response, page):
 
     json_response['id'] = task_id
     config.rclient.hset(task_id , page, gzip.compress(json.dumps(json_response).encode()))
-    # TTL : Set time to live for the query result.
-    if page == 0:
-        config.rclient.expire(task_id, config.RESULTS_TIME_TO_LIVE_SECS)
     return page + 1
 
 def addPrestoJob(user: str, sql: str):
     queueName = config.QUEUE_PREFIX + user
     len = config.rclient.llen(queueName)
     if len > 10:
-        raise AssertionError('Max concurrent queries reached')
+        return config.getErrorMessage("xxxx", 'Max concurrent queries reached')
 
     task = runPrestoQuery.apply_async((sql,), queue=queueName)
+
+    # Create result stub and set TTL(time to live) for the query result.
+    if not config.rclient.hexists(task.id, config.STATE):
+        config.rclient.hset(task.id, config.STATE, config.STATE_PENDING)
+        config.rclient.expire(task.id, config.RESULTS_TIME_TO_LIVE_SECS)
 
     ## If the queue is newly created, tell workers to start consuming from it.
     if len == 0:
         celeryApp.control.add_consumer(queueName)
 
-    return task.id
+    return config.getQueuedMessage(task.id)
 
 if __name__ == '__main__':
     runPrestoQuery("Select 1")

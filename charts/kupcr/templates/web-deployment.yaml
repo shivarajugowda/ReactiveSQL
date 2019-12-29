@@ -4,9 +4,8 @@ metadata:
   name: {{ template "kupcr.fullname" . }}-web
   labels:
     component: web
-{{ include "kupcr.labels" . | indent 4 }}
 spec:
-  replicas: {{ .Values.replicaCount.web }}
+  replicas: {{ .Values.web.replicaCount }}
   selector:
     matchLabels:
       app.kubernetes.io/name: {{ include "kupcr.name" . }}
@@ -23,25 +22,19 @@ spec:
       containers:
         - name: {{ .Chart.Name }}-web
           #image: "{{ .Values.image.repository }}:{{ .Chart.AppVersion }}"
-          image: "{{ .Values.image.repository }}:1.0"
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
-          env:
-            - name: CELERY_BROKER
-              value: "redis://myrx-kupcr-redis:6379/0"
-            - name: CELERY_BACKEND
-              value: "redis://myrx-kupcr-redis:6379/0"
-            - name: WEB_SERVICE
-              value: "myrx-kupcr-web:8000"
+          envFrom:
+            - configMapRef:
+                name: '{{ template "kupcr.fullname" . }}-env'
           command: ["uvicorn"]
           args:
-            - 'app.web:app'
+            - "{{ .Values.web.app }}"
             - '--workers'
-            - '4'
-            - '--port'
-            - '8000'
+            - '{{ .Values.web.threads }}'
           ports:
             - name: http
-              containerPort: 8000
+              containerPort: {{ .Values.web.service.port }}
               protocol: TCP
 #          livenessProbe:
 #            httpGet:
@@ -52,16 +45,16 @@ spec:
 #              path: /ping
 #              port: http
           resources:
-{{ toYaml .Values.resources | indent 12 }}
-    {{- with .Values.nodeSelector }}
+{{ toYaml .Values.web.resources | indent 12 }}
+    {{- with .Values.web.nodeSelector }}
       nodeSelector:
 {{ toYaml . | indent 8 }}
     {{- end }}
-    {{- with .Values.affinity }}
+    {{- with .Values.web.affinity }}
       affinity:
 {{ toYaml . | indent 8 }}
     {{- end }}
-    {{- with .Values.tolerations }}
+    {{- with .Values.web.tolerations }}
       tolerations:
 {{ toYaml . | indent 8 }}
     {{- end }}

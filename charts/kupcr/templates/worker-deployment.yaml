@@ -4,9 +4,8 @@ metadata:
   name: {{ template "kupcr.fullname" . }}-worker
   labels:
     component: worker
-{{ include "kupcr.labels" . | indent 4 }}
 spec:
-  replicas: {{ .Values.replicaCount.prestoWorker }}
+  replicas: {{ .Values.worker.replicaCount }}
   selector:
     matchLabels:
       app.kubernetes.io/name: {{ include "kupcr.name" . }}
@@ -19,35 +18,33 @@ spec:
         app.kubernetes.io/instance: {{ .Release.Name }}
         component: worker
     spec:
+      serviceAccountName: {{ .Values.worker.k8sSvcAccount }}
       terminationGracePeriodSeconds: 1
       containers:
         - name: {{ .Chart.Name }}-worker
           #image: "{{ .Values.image.repository }}:{{ .Chart.AppVersion }}"
-          image: "{{ .Values.image.repository }}:1.0"
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
-          env:
-            - name: CELERY_BROKER
-              value: "redis://myrx-kupcr-redis:6379/0"
-            - name: CELERY_BACKEND
-              value: "redis://myrx-kupcr-redis:6379/0"
-            - name: WEB_SERVICE
-              value: "myrx-kupcr-web:8000"
+          envFrom:
+            - configMapRef:
+                name: "{{ template "kupcr.fullname" . }}-env"
           command: ["celery"]
           args:
-            - '-A'
-            - 'app.worker'
             - 'worker'
+            - '-A'
+            - "{{ .Values.worker.app }}"
+            - '--concurrency={{ .Values.worker.threads }}'
           resources:
-{{ toYaml .Values.resources | indent 12 }}
-    {{- with .Values.nodeSelector }}
+{{ toYaml .Values.worker.resources | indent 12 }}
+    {{- with .Values.worker.nodeSelector }}
       nodeSelector:
 {{ toYaml . | indent 8 }}
     {{- end }}
-    {{- with .Values.affinity }}
+    {{- with .Values.worker.affinity }}
       affinity:
 {{ toYaml . | indent 8 }}
     {{- end }}
-    {{- with .Values.tolerations }}
+    {{- with .Values.worker.tolerations }}
       tolerations:
 {{ toYaml . | indent 8 }}
     {{- end }}

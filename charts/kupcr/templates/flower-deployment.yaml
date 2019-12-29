@@ -4,9 +4,8 @@ metadata:
   name: {{ template "kupcr.fullname" . }}-flower
   labels:
     component: flower
-{{ include "kupcr.labels" . | indent 4 }}
 spec:
-  replicas: {{ .Values.replicaCount.flower }}
+  replicas: {{ .Values.flower.replicaCount }}
   selector:
     matchLabels:
       app.kubernetes.io/name: {{ include "kupcr.name" . }}
@@ -23,16 +22,15 @@ spec:
       containers:
         - name: {{ .Chart.Name }}-flower
           #image: "{{ .Values.image.repository }}:{{ .Chart.AppVersion }}"
-          image: "{{ .Values.image.repository }}:1.0"
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          envFrom:
+            - configMapRef:
+                name: '{{ template "kupcr.fullname" . }}-env'
           command: ["flower"]
-          args:
-            - '--broker'
-            - 'redis://myrx-kupcr-redis:6379/0'
-            - '--port=80'
           ports:
             - name: http
-              containerPort: 80
+              containerPort: {{ .Values.flower.service.port }}
               protocol: TCP
           livenessProbe:
             httpGet:
@@ -43,16 +41,16 @@ spec:
               path: /
               port: http
           resources:
-{{ toYaml .Values.resources | indent 12 }}
-    {{- with .Values.nodeSelector }}
+{{ toYaml .Values.flower.resources | indent 12 }}
+    {{- with .Values.flower.nodeSelector }}
       nodeSelector:
 {{ toYaml . | indent 8 }}
     {{- end }}
-    {{- with .Values.affinity }}
+    {{- with .Values.flower.affinity }}
       affinity:
 {{ toYaml . | indent 8 }}
     {{- end }}
-    {{- with .Values.tolerations }}
+    {{- with .Values.flower.tolerations }}
       tolerations:
 {{ toYaml . | indent 8 }}
     {{- end }}

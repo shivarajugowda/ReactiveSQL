@@ -4,7 +4,6 @@ metadata:
   name: {{ template "kupcr.fullname" . }}-redis
   labels:
     component: redis
-{{ include "kupcr.labels" . | indent 4 }}
 spec:
   selector:
     matchLabels:
@@ -25,19 +24,19 @@ spec:
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           ports:
             - name: http
-              containerPort: 6379
+              containerPort: {{ .Values.redis.service.port }}
               protocol: TCP
           resources:
-{{ toYaml .Values.resources | indent 12 }}
-    {{- with .Values.nodeSelector }}
+{{ toYaml .Values.redis.resources | indent 12 }}
+    {{- with .Values.redis.nodeSelector }}
       nodeSelector:
 {{ toYaml . | indent 8 }}
     {{- end }}
-    {{- with .Values.affinity }}
+    {{- with .Values.redis.affinity }}
       affinity:
 {{ toYaml . | indent 8 }}
     {{- end }}
-    {{- with .Values.tolerations }}
+    {{- with .Values.redis.tolerations }}
       tolerations:
 {{ toYaml . | indent 8 }}
     {{- end }}

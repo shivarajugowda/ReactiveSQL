@@ -2,53 +2,54 @@
 # This is a YAML-formatted file.
 # Declare variables to be passed into your templates.
 
-redis:
-  usePassword: false
-  cluster:
-    enabled: false
-
-replicaCount:
-  web: 1
-  worker: 1
-  flower: 1
-
 image:
   repository: shivarajugowda/kupcr
-  tag: 1.0
+  tag: 1.1
   pullPolicy: Always # IfNotPresent
 
-nameOverride: ""
-fullnameOverride: ""
-
-ingress:
-  enabled: false
-
-service:
-  web:
+web:
+  replicaCount : 1
+  app : "app.web:fastApi"
+  threads : 1
+  service:
     type: ClusterIP # LoadBalancer, ClusterIP
     port: 8000
-  flower:
+  resources:
+    requests:
+      cpu: 0.1
+      memory: 100Mi
+
+flower:
+  replicaCount: 1
+  service:
     type: ClusterIP # LoadBalancer, ClusterIP
     port: 5555
-  redis:
-    type: ClusterIP # LoadBalancer, ClusterIP
+  resources:
+    requests:
+      cpu: 0.2
+      memory: 200Mi
+
+redis:
+  service:
+    type: ClusterIP
     port: 6379
+  resources:
+    requests:
+      cpu: 0.2
+      memory: 200Mi
+
+# K8S Service account needed to monitor and update(AutoScale) Presto deployments.
+# kubectl create serviceaccount prestosvcact --namespace default
+# kubectl create clusterrolebinding presto-admin-binding --clusterrole=cluster-admin --serviceaccount=default:prestosvcact
+worker:
+  k8sSvcAccount : prestosvcact
+  replicaCount : 1
+  app : "app.worker"
+  threads : 20
+  resources:
+    requests:
+      cpu: 0.5
+      memory: 1000Mi
 
 
-resources: {}
-  # We usually recommend not to specify default resources and to leave this as a conscious
-  # choice for the user. This also increases chances charts run on environments with little
-  # resources, such as Minikube. If you do want to specify resources, uncomment the following
-  # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
-  # limits:
-  #  cpu: 100m
-  #  memory: 128Mi
-  # requests:
-  #  cpu: 100m
-  #  memory: 128Mi
 
-nodeSelector: {}
-
-tolerations: []
-
-affinity: {}

@@ -1,8 +1,10 @@
 import subprocess
 import pathlib
 
-from app.worker import celeryApp
+# This file is only used for deubbing on the local env and is not used in K8S deployment.
 
+
+from app.worker import celeryApp
 if __name__ == '__main__':
 
     pathlib.Path('logs').mkdir(exist_ok=True)
@@ -17,5 +19,6 @@ if __name__ == '__main__':
     with open("logs/flower.log", "wb") as out:
         subprocess.Popen(cmd, stdout=out, stderr=out)
 
-    #celeryApp.start(argv=['celery', 'worker', '-l', 'warning',  '-P', 'eventlet',  '--logfile', 'logs/worker.log'])
-    celeryApp.start(argv=['celery', 'worker', '--beat', '-S', 'redbeat.RedBeatScheduler', '-l', 'warning',  '--logfile', 'logs/worker.log'])
+    celeryApp.start(argv=['celery', 'worker', '--beat', '-S', 'redbeat.RedBeatScheduler', '-l', 'error',  '--logfile', 'logs/worker.log'])
+    celeryApp.start(argv=['celery', 'worker', '--beat', '-S', 'redbeat.RedBeatScheduler', '-P', 'eventlet',  '-l', 'error', '--logfile',
+                          'logs/worker.log'])

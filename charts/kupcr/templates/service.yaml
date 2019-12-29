@@ -1,0 +1,59 @@
+--- ## WEB
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ template "kupcr.fullname" . }}-web
+  labels:
+    component: web
+{{ include "kupcr.labels" . | indent 4 }}
+spec:
+  type: {{ .Values.web.service.type }}
+  ports:
+    - port: {{ .Values.web.service.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    app.kubernetes.io/name: {{ include "kupcr.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    component: web
+
+--- ## FLOWER
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ template "kupcr.fullname" . }}-flower
+  labels:
+    component: flower
+{{ include "kupcr.labels" . | indent 4 }}
+spec:
+  type: {{ .Values.flower.service.type }}
+  ports:
+    - port: {{ .Values.flower.service.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    app.kubernetes.io/name: {{ include "kupcr.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    component: flower
+
+--- ## REDIS
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ template "kupcr.fullname" . }}-redis
+  labels:
+    component: redis
+{{ include "kupcr.labels" . | indent 4 }}
+spec:
+  type: {{ .Values.redis.service.type }}
+  ports:
+    - port: {{ .Values.redis.service.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    app.kubernetes.io/name: {{ include "kupcr.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    component: redis

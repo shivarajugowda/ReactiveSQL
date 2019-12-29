@@ -7,26 +7,29 @@ import gzip
 
 fastApi = FastAPI()
 
-@fastApi.get("/ping")
-async def ping():
+@fastApi.get("/ping", status_code=201)
+def ping():
     return 'pong!'
 
 @fastApi.post("/v1/statement")
 async def query(request: Request):
     user = request.headers.get('X-Presto-User')
     if not user:
-        raise AssertionError('User name must be specified')
+        return config.getErrorMessage("xxxx", 'User name must be specified')
 
     body = await request.body()
     sql: str = bytes.decode(body)
 
-    taskId = worker.addPrestoJob(user, sql)
-    return config.getQueuedStatus(taskId)
+    return worker.addPrestoJob(user, sql)
 
 @fastApi.get("/v1/statement/{state}/{queryId}/{token}/{page}")
 async def status(state : str, queryId : str, token : str, page : str):
+    state = config.rclient.hget(queryId, config.STATE)
+    if not state:
+        return config.getErrorMessage(queryId, 'Unknown Query ID' + queryId)
+
     ## Block execution till work is complete. Retry becomes easy.
-    if config.rclient.hexists(queryId, "DONE") :
+    if state == config.STATE_DONE.encode():
         data = gzip.decompress(config.rclient.hget(queryId, page)).decode()
         return Response(content=data, media_type="application/json")
 
@@ -36,4 +39,4 @@ async def status(state : str, queryId : str, token : str, page : str):
     #     data = gzip.decompress(data).decode()
     #     return Response(content=data, media_type="application/json")
 
-    return config.getExecutingStatus(queryId,page)
+    return config.getExecutingMessage(queryId, page)

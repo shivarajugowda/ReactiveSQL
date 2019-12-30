@@ -8,7 +8,6 @@ image:
   pullPolicy: Always # IfNotPresent
 
 web:
-  replicaCount : 1
   app : "app.web:fastApi"
   threads : 1
   service:
@@ -43,7 +42,6 @@ redis:
 # kubectl create clusterrolebinding presto-admin-binding --clusterrole=cluster-admin --serviceaccount=default:prestosvcact
 worker:
   k8sSvcAccount : prestosvcact
-  replicaCount : 1
   app : "app.worker"
   threads : 20
   resources:

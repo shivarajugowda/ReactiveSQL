@@ -20,5 +20,5 @@ if __name__ == '__main__':
         subprocess.Popen(cmd, stdout=out, stderr=out)
 
     celeryApp.start(argv=['celery', 'worker', '--beat', '-S', 'redbeat.RedBeatScheduler', '-l', 'error',  '--logfile', 'logs/worker.log'])
-    celeryApp.start(argv=['celery', 'worker', '--beat', '-S', 'redbeat.RedBeatScheduler', '-P', 'eventlet',  '-l', 'error', '--logfile',
+    celeryApp.start(argv=['celery', 'worker', '--beat', '-S', 'redbeat.RedBeatScheduler', '-P', 'eventlet',  '-O', 'fair', '-l', 'error', '--logfile',
                           'logs/worker.log'])

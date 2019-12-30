@@ -1,6 +1,4 @@
 import os, redis
-from enum import Flag, auto
-
 from pydantic import BaseModel
 import uuid, socket
 
@@ -11,6 +9,15 @@ RESULTS_TIME_TO_LIVE_SECS = 300
 QUEUE_PREFIX = "prestoworker:"
 POD_NAME = socket.gethostname()
 
+# CELERY related env variables.
+CELERYD_TASK_SOFT_TIME_LIMIT = 60 * 60 # None of our tasks should take more than 1 hour
+CELERYD_TASK_TIME_LIMIT = CELERYD_TASK_SOFT_TIME_LIMIT + 10 # If soft limit didn't help, kill the task right after
+CELERYD_MAX_TASKS_PER_CHILD = 500  # prevent memory leaks
+CELERY_ACKS_LATE = True  # has to have idempotent tasks!
+CELERY_TIMEZONE = 'UTC' # default, but be sure
+CELERY_TASK_SERIALIZER = 'json' # restore to pickle in dire situations
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_IGNORE_RESULT = False  # performance
 
 rclient = redis.from_url(CELERY_BROKER_URL)
 

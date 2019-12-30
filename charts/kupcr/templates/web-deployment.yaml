@@ -5,7 +5,6 @@ metadata:
   labels:
     component: web
 spec:
-  replicas: {{ .Values.web.replicaCount }}
   selector:
     matchLabels:
       app.kubernetes.io/name: {{ include "kupcr.name" . }}
@@ -32,6 +31,8 @@ spec:
             - "{{ .Values.web.app }}"
             - '--workers'
             - '{{ .Values.web.threads }}'
+            - '--log-level'
+            - 'error'
           ports:
             - name: http
               containerPort: {{ .Values.web.service.port }}
@@ -58,3 +59,23 @@ spec:
       tolerations:
 {{ toYaml . | indent 8 }}
     {{- end }}
+
+--- # Horizontal Pod Autoscaler
+apiVersion: autoscaling/v2beta1
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ template "kupcr.fullname" . }}-web-scaler
+  labels:
+    component: web
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ template "kupcr.fullname" . }}-web
+  minReplicas: 1
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      targetAverageUtilization: 60

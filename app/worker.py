@@ -1,13 +1,11 @@
-import json, gzip, copy, celery, subprocess, time, urllib3, http.client
+import sys, json, gzip, copy, celery, subprocess, time, urllib3
 import app.config as config
 from urllib.parse import ParseResult, urlsplit
 from celery.signals import worker_init, worker_shutting_down
 from celery.task import periodic_task
-import kubernetes, sys
 from datetime import timedelta
 from urllib3.util.retry import Retry
 
-prestoHTTP = urllib3.PoolManager(retries=Retry(5, backoff_factor=0.1)) #-- Max wait on retry = 3.0 seconds
 celeryApp = celery.Celery('tasks', broker=config.CELERY_BROKER_URL, backend=config.CELERY_RESULT_BACKEND)
 celeryApp.conf.update({
         'broker_pool_limit': 6,
@@ -16,8 +14,12 @@ celeryApp.conf.update({
         'task_acks_late': True,
      })
 
+prestoHTTP = urllib3.PoolManager(retries=Retry(5, backoff_factor=0.1)) #-- Max wait on retry = 3.0 seconds
+
 
 ## Start and Check Presto Service.
+# TODO: The print statements in this function are lost in the container env. because the function is run in a subprocess,
+#       need to figure out a way to persist it in the logs.
 @worker_init.connect()
 def start_presto_service(conf=None, **kwargs):
     start = time.perf_counter()
@@ -40,15 +42,10 @@ def start_presto_service(conf=None, **kwargs):
     finally:
         print("Presto Service initialization Time Taken : " + str(time.perf_counter() - start))
 
-##  Subscribe to active queues.
 @worker_init.connect()
-def subscribe_to_queues(conf=None, **kwargs):
-    try:
-        for key in config.rclient.scan_iter(config.QUEUE_PREFIX + "*"):
-            celeryApp.control.add_consumer(key.decode())
-    except Exception as e:
-        print("Failed to Subscribed to Active Queues : " + str(e))
-        sys.exit(1)
+def subscribeToActiveQueues(conf=None, **kwargs):
+    for key in config.rclient.scan_iter(config.QUEUE_PREFIX + "*"):
+        celeryApp.control.add_consumer(key.decode())
 
 @worker_shutting_down.connect()
 def shutdown_presto_service(conf=None, **kwargs):
@@ -59,18 +56,8 @@ def shutdown_presto_service(conf=None, **kwargs):
         print("Stop Presto Service ")
 
 @periodic_task(run_every=timedelta(seconds=300), expires=15, ignore_result=True)
-def autoscale():
-    kubernetes.config.load_kube_config()
-    v1 = kubernetes.client.CoreV1Api()
-    print("Listing pods with their IPs:")
-    ret = v1.list_namespaced_pod('default', watch=False)
-    for i in ret.items:
-        print("%s\t%s\t%s" % (i.status.pod_ip, i.metadata.namespace, i.metadata.name))
-
-@periodic_task(run_every=timedelta(seconds=300), expires=15, ignore_result=True)
 def garbageCollector():
     print("Run garbage Collector:")
-
 
 @celeryApp.task(compression='gzip', ignore_result=True, acks_late=True)
 def runPrestoQuery(sql: str):
@@ -122,6 +109,7 @@ def addPrestoJob(user: str, sql: str):
         celeryApp.control.add_consumer(queueName)
 
     return config.getQueuedMessage(task.id)
+
 
 if __name__ == '__main__':
     runPrestoQuery("Select 1")

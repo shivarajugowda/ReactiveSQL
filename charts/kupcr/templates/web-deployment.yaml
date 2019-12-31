@@ -20,8 +20,7 @@ spec:
       terminationGracePeriodSeconds: 1
       containers:
         - name: {{ .Chart.Name }}-web
-          #image: "{{ .Values.image.repository }}:{{ .Chart.AppVersion }}"
-          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          image: "{{ .Values.image.repository }}:{{ .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           envFrom:
             - configMapRef:

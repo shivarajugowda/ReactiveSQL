@@ -1,7 +1,7 @@
 import subprocess
 import pathlib
 
-# This file is only used for deubbing on the local env and is not used in K8S deployment.
+# This file is only used for debugging on the local env and is not used in K8S deployment.
 
 
 from app.worker import celeryApp
@@ -19,6 +19,5 @@ if __name__ == '__main__':
     with open("logs/flower.log", "wb") as out:
         subprocess.Popen(cmd, stdout=out, stderr=out)
 
-    celeryApp.start(argv=['celery', 'worker', '--beat', '-S', 'redbeat.RedBeatScheduler', '-l', 'error',  '--logfile', 'logs/worker.log'])
-    celeryApp.start(argv=['celery', 'worker', '--beat', '-S', 'redbeat.RedBeatScheduler', '-P', 'eventlet',  '-O', 'fair', '-l', 'error', '--logfile',
-                          'logs/worker.log'])
+    celeryApp.start(argv=['celery', 'worker', '-O', 'fair', '--beat', '-S', 'redbeat.RedBeatScheduler', '-l', 'error',  '--logfile', 'logs/worker.log'])
+    #celeryApp.start(argv=['celery', 'worker', '-O', 'fair', '-P', 'eventlet',   '-l', 'error', '--logfile', 'logs/worker.log'])

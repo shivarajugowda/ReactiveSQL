@@ -11,3 +11,4 @@ data:
   WEB_SERVICE: '{{ template "kupcr.fullname" . }}-web:{{ .Values.web.service.port }}'
   RESULTS_TIME_TO_LIVE_SECS: "300"
   QUEUE_PREFIX: "prestoworker:"
+  MANAGE_PRESTO_SERVICE: "True"

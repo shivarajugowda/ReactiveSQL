@@ -57,12 +57,13 @@ def shutdown_presto_service(conf=None, **kwargs):
 
 @periodic_task(run_every=timedelta(seconds=300), expires=15, ignore_result=True)
 def garbageCollector():
-    print("Run garbage Collector:")
+    print("If there are any zombie presto clusters, uninstall them:")
 
 @celeryApp.task(compression='gzip', ignore_result=True, acks_late=True)
 def runPrestoQuery(sql: str):
     task_id = runPrestoQuery.request.id
-    req = prestoHTTP.request('POST', 'http://localhost:9080/v1/statement', body=sql, headers={'X-Presto-User': 'XYZ'})
+    url = 'http://' +  config.PRESTO_SVC +':' + str(config.PRESTO_PORT) + '/v1/statement'
+    req = prestoHTTP.request('POST', url, body=sql, headers={'X-Presto-User': 'XYZ'})
     json_response = json.loads(req.data.decode())
     page = storeResults(task_id, copy.copy(json_response), 0)
     while('nextUri' in json_response):

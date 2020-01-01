@@ -18,10 +18,10 @@ server:
       port: 8080
       jmxport: 9999
     query:
-      maxMemory: "1GB"
-      maxMemoryPerNode: "1GB"
+      maxMemory: "100MB"
+      maxMemoryPerNode: "100MB"
   jvm:
-    maxHeapSize: "-Xmx10G" # "-XX:MaxRAMPercentage=75"  # "-Xmx10G" "-XX:MaxRAMPercentage=75"
+    maxHeapSize: "-Xmx512M" # "-XX:MaxRAMPercentage=75"  # "-Xmx10G" "-XX:MaxRAMPercentage=75"
     gcMethod:
       type: "UseG1GC"
       g1:
@@ -41,24 +41,14 @@ resources:
   # resources, such as Minikube. If you do want to specify resources, uncomment the following
   # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
   limits:
-    cpu: 3.5
-    memory: 10Gi
+    cpu: 1.5
+    memory: 756M
   requests:
-    cpu: 3.5
-    memory: 10Gi
+    cpu: 1.5
+    memory: 756M
 
 nodeSelector: {}
 
-tolerations:
-    coordinator:
-    - key: "special"
-      operator: "Equal"
-      value: "presto"
-      effect: "NoExecute"
-    worker:
-      - key: "special"
-        operator: "Equal"
-        value: "presto"
-        effect: "NoExecute"
+tolerations: {}
 
 affinity: {}

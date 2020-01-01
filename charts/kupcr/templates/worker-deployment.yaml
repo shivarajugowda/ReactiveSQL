@@ -18,7 +18,6 @@ spec:
         component: worker
     spec:
       serviceAccountName: {{ .Values.worker.k8sSvcAccount }}
-      terminationGracePeriodSeconds: 1
       containers:
         - name: {{ .Chart.Name }}-worker
           image: "{{ .Values.image.repository }}:{{ .Chart.AppVersion }}"

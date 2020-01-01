@@ -17,7 +17,6 @@ spec:
         app.kubernetes.io/instance: {{ .Release.Name }}
         component: web
     spec:
-      terminationGracePeriodSeconds: 1
       containers:
         - name: {{ .Chart.Name }}-web
           image: "{{ .Values.image.repository }}:{{ .Chart.AppVersion }}"

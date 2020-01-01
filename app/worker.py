@@ -62,7 +62,7 @@ def garbageCollector():
 @celeryApp.task(compression='gzip', ignore_result=True, acks_late=True)
 def runPrestoQuery(sql: str):
     task_id = runPrestoQuery.request.id
-    url = 'http://' +  config.PRESTO_SVC +':' + str(config.PRESTO_PORT) + '/v1/statement'
+    url = 'http://' +  config.PRESTO_SVC + ':' + str(config.PRESTO_PORT) + '/v1/statement'
     req = prestoHTTP.request('POST', url, body=sql, headers={'X-Presto-User': 'XYZ'})
     json_response = json.loads(req.data.decode())
     page = storeResults(task_id, copy.copy(json_response), 0)

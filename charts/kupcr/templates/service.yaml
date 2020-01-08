@@ -37,23 +37,3 @@ spec:
     app.kubernetes.io/name: {{ include "kupcr.name" . }}
     app.kubernetes.io/instance: {{ .Release.Name }}
     component: flower
-
---- ## REDIS
-apiVersion: v1
-kind: Service
-metadata:
-  name: {{ template "kupcr.fullname" . }}-redis
-  labels:
-    component: redis
-{{ include "kupcr.labels" . | indent 4 }}
-spec:
-  type: {{ .Values.redis.service.type }}
-  ports:
-    - port: {{ .Values.redis.service.port }}
-      targetPort: http
-      protocol: TCP
-      name: http
-  selector:
-    app.kubernetes.io/name: {{ include "kupcr.name" . }}
-    app.kubernetes.io/instance: {{ .Release.Name }}
-    component: redis

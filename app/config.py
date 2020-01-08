@@ -2,10 +2,10 @@ import os, redis
 from pydantic import BaseModel
 import uuid, socket
 
-CELERY_BROKER_URL = os.environ.get('CELERY_BROKER_URL')     #  "redis://localhost:6379/0"
+CELERY_BROKER_URL = os.environ.get('CELERY_BROKER_URL')     #  'amqp://guest:guest@localhost:5672/myvhost'
 CELERY_RESULT_BACKEND = os.environ.get('CELERY_RESULT_BACKEND')   #  "redis://localhost:6379/0"
 WEB_SERVICE = os.environ.get('WEB_SERVICE')      #  "locahost:8000"
-RESULTS_TIME_TO_LIVE_SECS = 300
+RESULTS_TIME_TO_LIVE_SECS = 600
 QUEUE_PREFIX = "prestoworker:"
 POD_NAME = socket.gethostname()
 
@@ -19,7 +19,8 @@ CELERY_TASK_SERIALIZER = 'json' # restore to pickle in dire situations
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_IGNORE_RESULT = False  # performance
 
-rclient = redis.from_url(CELERY_BROKER_URL)
+broker = redis.from_url(CELERY_RESULT_BACKEND)
+results = redis.from_url(CELERY_RESULT_BACKEND)
 
 STATE = "state"
 STATE_PENDING = "PENDING"

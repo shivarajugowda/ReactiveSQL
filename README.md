@@ -17,6 +17,11 @@ reslient, responsive, elastic and message-driven.
 	gcloud container --project "$(PROJECT_ID)" clusters create "$(CLUSTER_NAME)" --zone "$(ZONE)" --machine-type "n1-standard-2" --num-nodes "1" --min-nodes "1" --max-nodes "4" --preemptible  --image-type "COS" --enable-autoscaling --disk-size "50" --scopes "https://www.googleapis.com/auth/compute","https://www.googleapis.com/auth/devstorage.read_only","https://www.googleapis.com/auth/logging.write","https://www.googleapis.com/auth/monitoring","https://www.googleapis.com/auth/servicecontrol","https://www.googleapis.com/auth/service.management.readonly","https://www.googleapis.com/auth/trace.append" --network "default" --cluster-version=1.15 --addons HorizontalPodAutoscaling,HttpLoadBalancing --no-enable-autoupgrade --enable-autorepair
 	kubectl create clusterrolebinding cluster-admin-binding --clusterrole=cluster-admin --user=$(GCLOUD_USER)
 
+### Setup Kubernetes Cluster with RabbitMQ and Redis.
+
+    helm install myrabbitmq --set rabbitmq.username=guest,rabbitmq.password=guest stable/rabbitmq
+    helm install myredis --set cluster.enabled=false,usePassword=false stable/redis
+
 Setup service account :
 
 	kubectl create serviceaccount prestosvcact --namespace default

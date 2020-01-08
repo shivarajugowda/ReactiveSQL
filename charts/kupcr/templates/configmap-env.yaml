@@ -5,10 +5,11 @@ metadata:
   labels:
     component: env
 data:
-  CELERY_BROKER_URL: 'redis://{{ template "kupcr.fullname" . }}-redis:{{ .Values.redis.service.port }}/0'
-  CELERY_RESULT_BACKEND: 'redis://{{ template "kupcr.fullname" . }}-redis:{{ .Values.redis.service.port }}/0'
+  CELERY_BROKER_URL: "{{ .Values.CELERY_BROKER_URL }}"
+  CELERY_RESULT_BACKEND: "{{ .Values.CELERY_RESULT_BACKEND }}"
   FLOWER_PORT: "{{ .Values.flower.service.port }}"
   WEB_SERVICE: '{{ template "kupcr.fullname" . }}-web:{{ .Values.web.service.port }}'
   RESULTS_TIME_TO_LIVE_SECS: "300"
   QUEUE_PREFIX: "prestoworker:"
   MANAGE_PRESTO_SERVICE: "True"
+  REMAP_SIGTERM: "SIGQUIT"

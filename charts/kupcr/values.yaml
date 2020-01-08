@@ -2,6 +2,9 @@
 # This is a YAML-formatted file.
 # Declare variables to be passed into your templates.
 
+CELERY_BROKER_URL : 'amqp://admin:admin@myrabbitmq:5672'
+CELERY_RESULT_BACKEND : "redis://myredis-master:6379/0"
+
 image:
   repository: shivarajugowda/kupcr
   pullPolicy: Always # IfNotPresent
@@ -22,15 +25,6 @@ flower:
   service:
     type: ClusterIP # LoadBalancer, ClusterIP
     port: 5555
-  resources:
-    requests:
-      cpu: 0.2
-      memory: 200Mi
-
-redis:
-  service:
-    type: ClusterIP
-    port: 6379
   resources:
     requests:
       cpu: 0.2

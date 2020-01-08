@@ -24,13 +24,13 @@ async def query(request: Request):
 
 @fastApi.get("/v1/statement/{state}/{queryId}/{token}/{page}")
 async def status(state : str, queryId : str, token : str, page : str):
-    state = config.rclient.hget(queryId, config.STATE)
+    state = config.results.hget(queryId, config.STATE)
     if not state:
-        return config.getErrorMessage(queryId, 'Unknown Query ID' + queryId)
+        return config.getErrorMessage(queryId, 'Unknown Query ID : ' + queryId)
 
-    ## Block execution till work is complete. Retry becomes easy.
+    ## Wait till work is complete to provide results to facilitate Retry incase of errors.
     if state == config.STATE_DONE.encode():
-        data = gzip.decompress(config.rclient.hget(queryId, page)).decode()
+        data = gzip.decompress(config.results.hget(queryId, page)).decode()
         return Response(content=data, media_type="application/json")
 
     ## Stream results as they become available.

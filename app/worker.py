@@ -1,11 +1,10 @@
-import sys, json, gzip, celery, subprocess, time, urllib3
+import sys, json, gzip, celery, subprocess, time, http
 
 import app.config as config
 from urllib.parse import urlparse
 from celery.signals import worker_init, worker_shutdown
 from celery.task import periodic_task
 from datetime import timedelta
-from urllib3.util.retry import Retry
 from celery.signals import celeryd_after_setup
 
 celeryApp = celery.Celery('tasks', broker=config.CELERY_BROKER_URL, backend=config.CELERY_RESULT_BACKEND)
@@ -14,8 +13,6 @@ celeryApp.conf.update({
         'redis_max_connections': 6,
         'worker_prefetch_multiplier': 1,
      })
-
-prestoHTTP = urllib3.PoolManager(retries=Retry(5, backoff_factor=0.1)) #-- Max wait on retry = 3.0 seconds
 
 ## Start and Check Presto Service.
 # TODO: The print statements in this function are lost in the container env. because the function is run in a subprocess,
@@ -29,9 +26,6 @@ def start_presto_service(conf=None, **kwargs):
             cmd = ['helm', 'install', config.PRESTO_SVC, './charts/presto', '--set', 'server.workers=0', '--wait']
             subprocess.Popen(cmd, stdout=subprocess.PIPE).wait()
 
-        url = 'http://' + config.PRESTO_SVC + ':' + str(config.PRESTO_PORT) + "/v1/cluster"
-        print("Checking Presto Service with retry (timeout=100 seconds) : " + url)
-        prestoHTTP.request('GET', url, retries=Retry(10, backoff_factor=0.1))  #-- Max wait on retry = 100 seconds
     except Exception as e:
         print("Failed to connect to Presto Service in " + str(time.perf_counter() - start)
                         + " seconds with exception : " + str(e))
@@ -58,21 +52,25 @@ def garbageCollector():
     # TODO :
     print("If there are any zombie presto clusters, uninstall them:")
 
-@celeryApp.task(compression='gzip', ignore_result=True, acks_late=True, reject_on_worker_lost=True,
-                autoretry_for=(Exception,), retry_backoff=True, retry_kwargs={'max_retries': 10})
+@celeryApp.task(compression='gzip', ignore_result=True, acks_late=True, reject_on_worker_lost=True,)
+               # autoretry_for=(Exception,), retry_backoff=True, retry_kwargs={'max_retries': 10})
 def runPrestoQuery(taskspec):
     task_id = runPrestoQuery.request.id
-    url = 'http://' + config.PRESTO_SVC + ':' + str(config.PRESTO_PORT) + '/v1/statement'
-    req = prestoHTTP.request('POST', url, body=taskspec['sql'], headers=taskspec['headers'])
-    json_response = json.loads(req.data.decode())
+
+    conn = http.client.HTTPConnection(host=config.PRESTO_SVC, port=config.PRESTO_PORT)
+    conn.request('POST', '/v1/statement', body=taskspec['sql'], headers=taskspec['headers'])
+    response = conn.getresponse()
+    json_response = json.loads(response.read())
     nexturi = json_response.get('nextUri', None)
-    page = storeResults(task_id, 0, req.headers, json_response)
+    page = storeResults(task_id, 0, response.getheaders(), json_response)
     while nexturi:
-        req = prestoHTTP.request('GET', nexturi)
-        json_response = json.loads(req.data.decode())
+        conn.request('GET', nexturi)
+        response = conn.getresponse()
+        json_response = json.loads(response.read())
         nexturi = json_response.get('nextUri', None)
-        page = storeResults(task_id, page, req.headers, json_response)
+        page = storeResults(task_id, page, response.getheaders(), json_response)
     config.results.hset(task_id, config.STATE, config.STATE_DONE)
+    conn.close()
 
 def storeResults(task_id: str, page, headers, json_response):
     # Based on thee tests so far, I think we can ignore the QUEUED responses.
@@ -94,7 +92,7 @@ def storeResults(task_id: str, page, headers, json_response):
 
     # Write to Redis.
     config.results.hset(task_id , page, gzip.compress(json.dumps(json_response).encode()))
-    prestoHeaders = {key: val for key, val in headers.items() if key.startswith("X-Presto")}
+    prestoHeaders = {key: val for key, val in headers if key.startswith("X-Presto")}
     if prestoHeaders:
         config.results.hset(task_id, str(page) + "_headers", json.dumps(prestoHeaders))
 

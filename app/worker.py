@@ -1,7 +1,7 @@
-import sys, json, gzip, copy, celery, subprocess, time, urllib3
+import sys, json, gzip, celery, subprocess, time, urllib3
 
 import app.config as config
-from urllib.parse import ParseResult, urlsplit
+from urllib.parse import urlparse
 from celery.signals import worker_init, worker_shutdown
 from celery.task import periodic_task
 from datetime import timedelta
@@ -65,15 +65,17 @@ def runPrestoQuery(taskspec):
     url = 'http://' + config.PRESTO_SVC + ':' + str(config.PRESTO_PORT) + '/v1/statement'
     req = prestoHTTP.request('POST', url, body=taskspec['sql'], headers=taskspec['headers'])
     json_response = json.loads(req.data.decode())
-    page = storeResults(task_id, 0, req.headers, copy.copy(json_response))
-    while('nextUri' in json_response):
-        req = prestoHTTP.request('GET', json_response['nextUri'])
+    nexturi = json_response.get('nextUri', None)
+    page = storeResults(task_id, 0, req.headers, json_response)
+    while nexturi:
+        req = prestoHTTP.request('GET', nexturi)
         json_response = json.loads(req.data.decode())
-        page = storeResults(task_id, page, req.headers, copy.copy(json_response))
+        nexturi = json_response.get('nextUri', None)
+        page = storeResults(task_id, page, req.headers, json_response)
     config.results.hset(task_id, config.STATE, config.STATE_DONE)
 
 def storeResults(task_id: str, page, headers, json_response):
-    # We can ignore the QUEUED results. I think...
+    # Based on thee tests so far, I think we can ignore the QUEUED responses.
     if 'QUEUED' == json_response['stats']['state']:
         return page
 
@@ -83,16 +85,12 @@ def storeResults(task_id: str, page, headers, json_response):
         if any(pattern in errmsg for pattern in config.RETRYABLE_ERROR_MESSAGES):
             raise RuntimeError(errmsg) # Raise error, the query will be retried.
 
-    json_response['id'] = task_id
     if 'nextUri' in json_response : # Switch the URI to point to the stored results.  # Tested on Presto 317
-        urix = urlsplit(json_response['nextUri'])
-        parts = urix.path.split("/")
-        parts[4] = task_id;
-        parts[5] = 'zzz'
+        parsed = urlparse(json_response['nextUri'])
+        parsed = parsed._replace(netloc=config.WEB_SERVICE, path=parsed.path.replace(json_response['id'], task_id))
+        json_response['nextUri'] = parsed.geturl()
 
-        res = ParseResult(scheme=urix.scheme, netloc=config.WEB_SERVICE, path='/'.join(parts),
-                          params=None, query=None, fragment=None)
-        json_response['nextUri'] = res.geturl()
+    json_response['id'] = task_id
 
     # Write to Redis.
     config.results.hset(task_id , page, gzip.compress(json.dumps(json_response).encode()))
@@ -101,7 +99,6 @@ def storeResults(task_id: str, page, headers, json_response):
         config.results.hset(task_id, str(page) + "_headers", json.dumps(prestoHeaders))
 
     return page + 1
-
 
 
 if __name__ == '__main__':

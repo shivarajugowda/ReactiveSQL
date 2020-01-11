@@ -3,42 +3,28 @@ import os, redis
 from pydantic import BaseModel
 import uuid, socket
 
-CELERY_BROKER_URL = os.environ.get('CELERY_BROKER_URL')     #  'amqp://guest:guest@localhost:5672/myvhost'
-CELERY_RESULT_BACKEND = os.environ.get('CELERY_RESULT_BACKEND')   #  "redis://localhost:6379/0"
-WEB_SERVICE = os.environ.get('WEB_SERVICE')      #  "locahost:8000"
+CELERY_BROKER_URL     = os.environ.get('CELERY_BROKER_URL')  if os.environ.get('CELERY_BROKER_URL')  else 'amqp://guest:guest@localhost:5672/myvhost'
+CELERY_RESULT_BACKEND = os.environ.get('CELERY_RESULT_BACKEND') if os.environ.get('CELERY_RESULT_BACKEND') else  "redis://localhost:6379/0"
+WEB_SERVICE           = os.environ.get('WEB_SERVICE')  if  os.environ.get('WEB_SERVICE') else "locahost:8000"
+MANAGE_PRESTO_SERVICE = os.environ.get('MANAGE_PRESTO_SERVICE')
+
+PRESTO_SVC = 'presto-' + str(uuid.uuid4())[:12] if MANAGE_PRESTO_SERVICE else "localhost"
+PRESTO_PORT = 8080
+
 RESULTS_TIME_TO_LIVE_SECS = 600
 QUEUE_PREFIX = "prestoworker:"
-POD_NAME = socket.gethostname()
-
-# CELERY related env variables.
-CELERYD_TASK_SOFT_TIME_LIMIT = 60 * 60 # None of our tasks should take more than 1 hour
-CELERYD_TASK_TIME_LIMIT = CELERYD_TASK_SOFT_TIME_LIMIT + 10 # If soft limit didn't help, kill the task right after
-CELERYD_MAX_TASKS_PER_CHILD = 500  # prevent memory leaks
-CELERY_ACKS_LATE = True  # has to have idempotent tasks!
-CELERY_TIMEZONE = 'UTC' # default, but be sure
-CELERY_TASK_SERIALIZER = 'json' # restore to pickle in dire situations
-CELERY_RESULT_SERIALIZER = 'json'
-CELERY_IGNORE_RESULT = False  # performance
-
-broker = redis.from_url(CELERY_RESULT_BACKEND)
-results = redis.from_url(CELERY_RESULT_BACKEND)
-
-RETRYABLE_ERROR_MESSAGES = ['Presto server is still initializing', ]
-
-STATE = "state"
-STATE_PENDING = "PENDING"
-STATE_RUNNING = "RUNNING"
-STATE_DONE = "DONE"
-
-MANAGE_PRESTO_SERVICE = os.environ.get('MANAGE_PRESTO_SERVICE')
 POD_PRESTO_SVC_MAP = "pod-presto-map:"
 
-if MANAGE_PRESTO_SERVICE:
-    PRESTO_SVC = 'mypresto-' + str(uuid.uuid4())[:8]
-    PRESTO_PORT = 8080
-else :
-    PRESTO_SVC = "localhost"
-    PRESTO_PORT = 9080
+POD_NAME = socket.gethostname()
+results = redis.from_url(CELERY_RESULT_BACKEND)
+
+RETRYABLE_ERROR_MESSAGES = ['Presto server is still initializing',      # Presto coordinator is restarting.
+                            ]
+
+STATE = "state"
+STATE_QUEUED = "QUEUED"
+STATE_RUNNING = "RUNNING"
+STATE_DONE = "DONE"
 
 
 class Stats(BaseModel):
@@ -64,10 +50,8 @@ class QueryResult(BaseModel):
     infoUri : str = None
     nextUri : str = None
     stats : Stats = Stats()
+    error: str = None
     warnings = []
-
-class ErrorResult(QueryResult):
-    error:    str = None
 
 def getQueuedMessage(taskId: str):
     nextUri = 'http://' + WEB_SERVICE + '/v1/statement/queued/' + taskId + '/zzz/0'
@@ -83,4 +67,4 @@ def getExecutingMessage(taskId: str, page: int):
 
 def getErrorMessage(taskId: str, error: str):
     nextUri = 'http://' + WEB_SERVICE + '/v1/statement/queued/' + taskId + '/zzz/0'
-    return ErrorResult(id=taskId, nextUri=nextUri, error=error)
+    return QueryResult(id=taskId, nextUri=nextUri, error=error)

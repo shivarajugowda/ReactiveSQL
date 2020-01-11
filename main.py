@@ -10,7 +10,7 @@ if __name__ == '__main__':
     pathlib.Path('logs').mkdir(exist_ok=True)
 
     # Start Webapp
-    cmd = ['uvicorn', 'app.web:fastApi', '--log-level', 'info', '--workers', '4']
+    cmd = ['uvicorn', 'app.web:fastApi', '--log-level', 'error', '--workers', '4']
     with open("logs/web.log", "wb") as out:
         subprocess.Popen(cmd, stdout=out, stderr=out)
 

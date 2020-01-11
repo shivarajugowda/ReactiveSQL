@@ -52,8 +52,8 @@ def garbageCollector():
     # TODO :
     print("If there are any zombie presto clusters, uninstall them:")
 
-@celeryApp.task(compression='gzip', ignore_result=True, acks_late=True, reject_on_worker_lost=True,)
-               # autoretry_for=(Exception,), retry_backoff=True, retry_kwargs={'max_retries': 10})
+@celeryApp.task(compression='gzip', ignore_result=True, acks_late=True, reject_on_worker_lost=True,
+                autoretry_for=(Exception,), retry_backoff=True, retry_kwargs={'max_retries': 10})
 def runPrestoQuery(taskspec):
     task_id = runPrestoQuery.request.id
 
@@ -85,7 +85,7 @@ def storeResults(task_id: str, page, headers, json_response):
 
     if 'nextUri' in json_response : # Switch the URI to point to the stored results.  # Tested on Presto 317
         parsed = urlparse(json_response['nextUri'])
-        parsed = parsed._replace(netloc=config.WEB_SERVICE, path=parsed.path.replace(json_response['id'], task_id))
+        parsed = parsed._replace(netloc=config.GATEWAY_SERVICE, path=parsed.path.replace(json_response['id'], task_id))
         json_response['nextUri'] = parsed.geturl()
 
     json_response['id'] = task_id

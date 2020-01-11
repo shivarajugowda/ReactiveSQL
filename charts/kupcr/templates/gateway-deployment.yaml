@@ -1,24 +1,24 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ template "kupcr.fullname" . }}-web
+  name: {{ template "kupcr.fullname" . }}-gateway
   labels:
-    component: web
+    component: gateway
 spec:
   selector:
     matchLabels:
       app.kubernetes.io/name: {{ include "kupcr.name" . }}
       app.kubernetes.io/instance: {{ .Release.Name }}
-      component: web
+      component: gateway
   template:
     metadata:
       labels:
         app.kubernetes.io/name: {{ include "kupcr.name" . }}
         app.kubernetes.io/instance: {{ .Release.Name }}
-        component: web
+        component: gateway
     spec:
       containers:
-        - name: {{ .Chart.Name }}-web
+        - name: {{ .Chart.Name }}-gateway
           image: "{{ .Values.image.repository }}:{{ .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           envFrom:
@@ -26,14 +26,14 @@ spec:
                 name: '{{ template "kupcr.fullname" . }}-env'
           command: ["uvicorn"]
           args:
-            - "{{ .Values.web.app }}"
+            - "{{ .Values.gateway.app }}"
             - '--workers'
-            - '{{ .Values.web.threads }}'
+            - '{{ .Values.gateway.threads }}'
             - '--log-level'
             - 'error'
           ports:
             - name: http
-              containerPort: {{ .Values.web.service.port }}
+              containerPort: {{ .Values.gateway.service.port }}
               protocol: TCP
 #          livenessProbe:
 #            httpGet:
@@ -44,16 +44,16 @@ spec:
 #              path: /ping
 #              port: http
           resources:
-{{ toYaml .Values.web.resources | indent 12 }}
-    {{- with .Values.web.nodeSelector }}
+{{ toYaml .Values.gateway.resources | indent 12 }}
+    {{- with .Values.gateway.nodeSelector }}
       nodeSelector:
 {{ toYaml . | indent 8 }}
     {{- end }}
-    {{- with .Values.web.affinity }}
+    {{- with .Values.gateway.affinity }}
       affinity:
 {{ toYaml . | indent 8 }}
     {{- end }}
-    {{- with .Values.web.tolerations }}
+    {{- with .Values.gateway.tolerations }}
       tolerations:
 {{ toYaml . | indent 8 }}
     {{- end }}
@@ -62,14 +62,14 @@ spec:
 apiVersion: autoscaling/v2beta1
 kind: HorizontalPodAutoscaler
 metadata:
-  name: {{ template "kupcr.fullname" . }}-web-scaler
+  name: {{ template "kupcr.fullname" . }}-gateway-scaler
   labels:
-    component: web
+    component: gateway
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: {{ template "kupcr.fullname" . }}-web
+    name: {{ template "kupcr.fullname" . }}-gateway
   minReplicas: 1
   maxReplicas: 10
   metrics:

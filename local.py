@@ -1,7 +1,7 @@
 import subprocess
 import pathlib
 
-# This file is only used for debugging on the local env and is not used in K8S deployment.
+# This file is only used for debugging/testing in the local env and is not used in K8S deployment.
 
 
 from app.worker import celeryApp
@@ -10,8 +10,8 @@ if __name__ == '__main__':
     pathlib.Path('logs').mkdir(exist_ok=True)
 
     # Start Webapp
-    cmd = ['uvicorn', 'app.web:fastApi', '--log-level', 'error', '--workers', '4']
-    with open("logs/web.log", "wb") as out:
+    cmd = ['uvicorn', 'app.gateway:fastApi', '--log-level', 'error', '--workers', '4']
+    with open("logs/gateway.log", "wb") as out:
         subprocess.Popen(cmd, stdout=out, stderr=out)
 
     # Start Flower, Celery UI

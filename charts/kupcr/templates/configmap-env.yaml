@@ -8,7 +8,7 @@ data:
   CELERY_BROKER_URL: "{{ .Values.CELERY_BROKER_URL }}"
   CELERY_RESULT_BACKEND: "{{ .Values.CELERY_RESULT_BACKEND }}"
   FLOWER_PORT: "{{ .Values.flower.service.port }}"
-  WEB_SERVICE: '{{ template "kupcr.fullname" . }}-web:{{ .Values.web.service.port }}'
+  GATEWAY_SERVICE: '{{ template "kupcr.fullname" . }}-gateway:{{ .Values.gateway.service.port }}'
   RESULTS_TIME_TO_LIVE_SECS: "300"
   QUEUE_PREFIX: "prestoworker:"
   MANAGE_PRESTO_SERVICE: "True"

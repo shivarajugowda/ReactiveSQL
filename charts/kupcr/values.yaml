@@ -9,8 +9,8 @@ image:
   repository: shivarajugowda/kupcr
   pullPolicy: Always # IfNotPresent
 
-web:
-  app : "app.web:fastApi"
+gateway:
+  app : "app.gateway:fastApi"
   threads : 1
   service:
     type: ClusterIP # LoadBalancer, ClusterIP

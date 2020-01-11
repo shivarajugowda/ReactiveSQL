@@ -1,4 +1,5 @@
 import os, redis
+
 from pydantic import BaseModel
 import uuid, socket
 
@@ -22,6 +23,8 @@ CELERY_IGNORE_RESULT = False  # performance
 broker = redis.from_url(CELERY_RESULT_BACKEND)
 results = redis.from_url(CELERY_RESULT_BACKEND)
 
+RETRYABLE_ERROR_MESSAGES = ['Presto server is still initializing', ]
+
 STATE = "state"
 STATE_PENDING = "PENDING"
 STATE_RUNNING = "RUNNING"
@@ -44,13 +47,27 @@ class Stats(BaseModel):
     scheduled : bool = False
     nodes : int = 0
     totalSplits : int = 0
+    queuedSplits: int = 0
+    runningSplits: int = 0
+    completedSplits: int = 0
+    cpuTimeMillis: int = 0
+    wallTimeMillis: int = 0
+    queuedTimeMillis : int = 0
+    elapsedTimeMillis : int = 0
+    processedRows : int = 0
+    processedBytes : int = 0
+    peakMemoryBytes : int = 0
+    spilledBytes: int = 0
 
 class QueryResult(BaseModel):
     id : str
     infoUri : str = None
     nextUri : str = None
-    error:    str = None
     stats : Stats = Stats()
+    warnings = []
+
+class ErrorResult(QueryResult):
+    error:    str = None
 
 def getQueuedMessage(taskId: str):
     nextUri = 'http://' + WEB_SERVICE + '/v1/statement/queued/' + taskId + '/zzz/0'
@@ -66,4 +83,4 @@ def getExecutingMessage(taskId: str, page: int):
 
 def getErrorMessage(taskId: str, error: str):
     nextUri = 'http://' + WEB_SERVICE + '/v1/statement/queued/' + taskId + '/zzz/0'
-    return QueryResult(id=taskId, nextUri=nextUri, error=error)
+    return ErrorResult(id=taskId, nextUri=nextUri, error=error)

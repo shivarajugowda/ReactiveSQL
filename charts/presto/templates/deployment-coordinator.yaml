@@ -1,4 +1,4 @@
-apiVersion: apps/v1beta2
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{ template "presto.coordinator" . }}
@@ -25,14 +25,14 @@ spec:
         - name: config-volume
           configMap:
             name: {{ template "presto.coordinator" . }}
-      terminationGracePeriodSeconds: 5
+      terminationGracePeriodSeconds: 2
       containers:
         - name: {{ .Chart.Name }}-coordinator
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           command: ["/bin/bash"]
           args:
-            - {{ .Values.server.config.path }}/docker-presto.sh
+            - {{ .Values.server.config.path }}/start-presto.sh
           volumeMounts:
             - mountPath: {{ .Values.server.config.path }}
               name: config-volume
@@ -57,12 +57,6 @@ spec:
             initialDelaySeconds: 5
             periodSeconds: 2
             failureThreshold: 30
-          lifecycle:
-            preStop:
-              exec:
-                command:
-                  - /bin/bash
-                  - {{ .Values.server.config.path }}/prestop_hook.sh
           resources:
 {{ toYaml .Values.resources | indent 12 }}
     {{- with .Values.nodeSelector }}

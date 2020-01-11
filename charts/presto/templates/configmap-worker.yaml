@@ -40,7 +40,7 @@ data:
   log.properties: |
     io.prestosql={{ .Values.server.log.presto.level }}
 
-  docker-presto.sh: |
+  start-presto.sh: |
     #!/bin/bash
     cp {{ .Values.server.config.path }}/*.properties $PRESTO_CONF_DIR
     cp {{ .Values.server.config.path }}/*.config $PRESTO_CONF_DIR
